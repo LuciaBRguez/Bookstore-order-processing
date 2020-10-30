@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:jbossts="http://www.mulesoft.org/schema/mule/jbossts" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/jbossts http://www.mulesoft.org/schema/mule/jbossts/current/mule-jbossts.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <custom-transformer class="org.mule.transforms.FileToOrdenTransformer" name="JavaFileToOrder" doc:name="Java"/>
+    <file:file-to-string-transformer name="File_to_String" doc:name="File to String"/>
+    <smtp:gmail-connector name="Gmail" validateConnections="true" doc:name="Gmail"/>
+    <flow name="entradaFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/entrada" doc:name="HTTP"/>
+        <http:static-resource-handler resourceBase="docroot/index.html" doc:name="HTTP Static Resource Handler"/>
+    </flow>
+    <flow name="HtmlFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/orden" doc:name="HTTP"/>
+        <set-payload value="#[message.inboundProperties.'http.query.string']" doc:name="Set Payload"/>
+        <custom-transformer  class="org.mule.transforms.HttpToOrdenTransformer" doc:name="HttpToOrdenTransformer"/>
+        <collection-splitter doc:name="Collection Splitter"/>
+        <vm:outbound-endpoint exchange-pattern="request-response" path="comprobacionStock" doc:name="VM comprobacionStock"/>
+    </flow>
+    <flow name="CsvFlow">
+        <file:inbound-endpoint path="/tmp/input" moveToPattern="#[message.inboundProperties['originalFilename']].backup" moveToDirectory="/tmp" responseTimeout="10000" transformer-refs="File_to_String JavaFileToOrder" doc:name="File"/>
+        <collection-splitter doc:name="Collection Splitter"/>
+        <vm:outbound-endpoint exchange-pattern="request-response" path="comprobacionStock" doc:name="VM comprobacionStock"/>
+    </flow>
+    <flow name="comprobacionStockFlow">
+        <vm:inbound-endpoint exchange-pattern="request-response" path="comprobacionStock" doc:name="VM"/>
+        <component class="org.mule.components.ComprobacionStock" doc:name="ComprobacionStock"/>
+        <choice doc:name="Choice">
+            <when expression="payload.disponible == &quot;true&quot;">
+                <vm:outbound-endpoint exchange-pattern="request-response" path="stockDisponible" doc:name="VM stockDisponible"/>
+            </when>
+            <otherwise>
+                <vm:outbound-endpoint exchange-pattern="request-response" path="stockNoDisponible" doc:name="VM stockNoDisponible"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="stockDisponibleFlow">
+        <vm:inbound-endpoint exchange-pattern="request-response" path="stockDisponible" doc:name="VM"/>
+        <component class="org.mule.components.ActualizacionStock" doc:name="ActualizacionStock"/>
+        <component class="org.mule.components.ActualizacionCompras" doc:name="ActualizacionCompras"/>
+        <choice doc:name="Choice">
+            <when expression="payload.financiacion == &quot;s&quot;">
+                <vm:outbound-endpoint exchange-pattern="request-response" path="tramitarFinanciacion" doc:name="VM tramitarFinanciacion"/>
+            </when>
+            <otherwise>
+                <vm:outbound-endpoint exchange-pattern="request-response" path="generarFactura" doc:name="VM generarFactura"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="stockNoDisponibleFlow">
+        <vm:inbound-endpoint exchange-pattern="request-response" path="stockNoDisponible" doc:name="VM stockNoDisponible"/>
+        <component class="org.mule.components.GenerarListaEspera" doc:name="GenerarListaEspera"/>
+    </flow>
+    <flow name="tramitarFinanciacionFlow">
+        <vm:inbound-endpoint exchange-pattern="request-response" path="tramitarFinanciacion" doc:name="VM tramitarFinanciacion"/>
+        <component class="org.mule.components.ComprobarDeuda" doc:name="ComprobarDeuda"/>
+        <choice doc:name="Choice">
+            <when expression="payload.concederFinanciacion == &quot;true&quot;">
+                <vm:outbound-endpoint exchange-pattern="request-response" path="financiacion" doc:name="VM financiacion"/>
+            </when>
+            <otherwise>
+                <vm:outbound-endpoint exchange-pattern="request-response" path="generarFactura" doc:name="VM generarFactura"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="financiacionFlow">
+        <vm:inbound-endpoint exchange-pattern="request-response" path="financiacion" doc:name="VM financiacion"/>
+        <component class="org.mule.components.GenerarCredito" doc:name="GenerarCredito"/>
+        <vm:outbound-endpoint exchange-pattern="request-response" path="generarFactura" doc:name="VM generarFactura"/>
+    </flow>
+    <flow name="emitirFacturaFlow">
+        <vm:inbound-endpoint exchange-pattern="request-response" path="generarFactura" doc:name="VM generarFactura"/>
+        <scatter-gather doc:name="Scatter-Gather">
+            <processor-chain>
+                <component class="org.mule.components.GeneradorFactura" doc:name="GenerarFactura"/>
+                <file:outbound-endpoint path="/tmp/output/facturas" outputPattern="#[function:datestamp]-factura.txt" responseTimeout="10000" doc:name="File"/>
+            </processor-chain>
+            <vm:outbound-endpoint exchange-pattern="request-response" path="envio" doc:name="VM envio"/>
+        </scatter-gather>
+    </flow>
+    <flow name="envioFlow">
+        <vm:inbound-endpoint exchange-pattern="request-response" path="envio" doc:name="VM envio"/>
+        <choice doc:name="Choice">
+            <when expression="payload.compras &gt; 2000">
+                <logger message="Logger VIP" level="INFO" doc:name="VIP"/>
+                <component class="org.mule.components.EnvioUrgente" doc:name="EnvioUrgente"/>
+            </when>
+            <otherwise>
+                <logger message="Logger no VIP" level="INFO" doc:name="No VIP"/>
+                <component class="org.mule.components.EnvioOrdinario" doc:name="EnvioOrdinario"/>
+            </otherwise>
+        </choice>
+        <smtp:outbound-endpoint host="smtp.gmail.com" user="luciapruebamule@gmail.com" password="Mypa5w0rd" connector-ref="Gmail" to="luciapruebamule@gmail.com" from="luciapruebamule@gmail.com" subject="Nueva orden" responseTimeout="10000" doc:name="SMTP"/>
+    </flow>
+</mule>

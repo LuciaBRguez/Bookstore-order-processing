@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Libreria</title>
+</head>
+<body>
+	<h1>Libreria</h1>
+	<h2>Intoduzca los datos de su compra</h2>
+	<form action="/orden" method="GET">
+	    <div>
+	        <label for="nif">NIF:</label>
+		    <input type="text" name="nif" />
+	    </div>
+		
+		<div>
+		    <label for="nombre">Nombre:</label>
+		    <input type="text" name="nombre" />
+		</div>
+		
+		<div>
+		    <label for="financiacion">Financia:</label> 
+            <select name="financiacion">
+                <option value="s">Si</option>
+                <option value="n">No</option>
+            </select>
+		</div>
+        
+		<p>Seleccione los libros: </p>
+		<div>
+		    <label for="0321127420">ISBN: 0321127420 </label>
+            <select name="0321127420">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+		    </select>
+		</div>
+		
+		<div>
+		    <label for="0201485672">ISBN: 0201485672 </label>
+            <select name="0201485672">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+		</div>
+		
+		<div>
+		    <label for="1933988967">ISBN: 1933988967 </label>
+            <select name="1933988967">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+		</div>
+		
+		<div>
+		    <label for="0201615835">ISBN: 0201615835 </label>
+            <select name="0201615835">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+		</div>
+		
+		<input type="submit" value="Realizar pedido" />
+	</form>
+
+</body>
+</html>
